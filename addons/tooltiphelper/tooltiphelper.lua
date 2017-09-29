@@ -1165,6 +1165,18 @@ end
 
 function JOURNAL_STATS_CUSTOM_TOOLTIP_TEXT(invItem)
 	local text = ""
+	if invItem.Journal then
+		local itemObtainCount = GetItemObtainCount(pc, invItem.ClassID);
+		local curScore, maxScore, curLv, curPoint, maxPoint = 0, 0, 0, 0, 0;
+		curScore, maxScore = _GET_ADVENTURE_BOOK_POINT_ITEM(invItem.ItemType == 'Equip', itemObtainCount);
+		curLv, curPoint, maxPoint = GET_ADVENTURE_BOOK_ITEM_OBTAIN_COUNT_INFO(invItem.ItemType == 'Equip', itemObtainCount);
+		text = "Journal Points Acquired: (" .. curScore .. "/" .. maxScore .. "){nl}";
+		if curScore == maxPoint then 
+			text = "Journal Points Acquired: " .. maxScore .. "{nl}";
+		end
+		text = text .. "Total Obtained: " .. itemObtainCount .. "{nl}";
+	end
+	--[[
 	local type = "Item"
 	if invItem.ItemType == "Recipe" then type = "Recipe" end
 	
@@ -1198,6 +1210,7 @@ function JOURNAL_STATS_CUSTOM_TOOLTIP_TEXT(invItem)
 			end
 		end
     end
+	--]]
     return toIMCTemplate(text, labelColor)
 end
 
@@ -1275,6 +1288,43 @@ function RECIPE_ADD_CUSTOM_TOOLTIP_TEXT(invItem)
     local partOfRecipe = {};
     local foundMatch = false;
     local unSortedTable = {};
+
+	local craft_material_info_func = ADVENTURE_BOOK_CRAFT_CONTENT["CRAFT_MATERIAL_INFO"];
+	local craft_list = ADVENTURE_BOOK_CRAFT_CONTENT["CRAFT_LIST_ALL"]();
+	for i=1, #craft_list do
+		local recipeClsName = craft_list[i]['recipe'];
+		local targetClsName = craft_list[i]['target'];
+
+		local target_info = ADVENTURE_BOOK_CRAFT_CONTENT["CRAFT_RECIPE_INFO"](recipeClsName, targetClsName)
+		local material_info_list = craft_material_info_func(recipeClsName);
+
+		for m = 1, #material_info_list do
+			local obj = {};
+			local material_info = material_info_list[m];
+			local ClsName = material_info['class_name'];
+
+			if invItem.ClassName == ClsName and ClsName ~= nil and ClsName ~= 'None' then
+				foundMatch = true;
+				local resultItem = GetClass("Item", target_info["class_name"]);
+				obj.recipeClassID = GetClass("Item", material_info_list[1]["class_name"]).ClassID;
+				
+				obj.resultItemObj = resultItem;
+				obj.grade = resultItem.ItemGrade;
+				if obj.grade == 'None' or obj.grade == nil then
+					obj.grade = 0;
+				end
+				obj.isRegistered = false;
+				local curScore, maxScore = _GET_ADVENTURE_BOOK_CRAFT_POINT(GetCraftCount(pc, target_info['class_id']));
+				obj.isCrafted = (curScore == maxScore);
+				obj.recipeIcon = material_info_list[1]["icon"];
+				obj.needCount = material_info['max_count'];
+				obj.haveCount = material_info['count'];
+				obj.resultItemName = dictionary.ReplaceDicIDInCompStr(resultItem.Name)
+				table.insert(unSortedTable, obj);
+			end
+		end
+	end
+	--[[
     local clsList, cnt = GetClassList("Recipe");
     for i = 0 , cnt - 1 do
         local cls = GetClassByIndexFromList(clsList, i);
@@ -1329,6 +1379,7 @@ function RECIPE_ADD_CUSTOM_TOOLTIP_TEXT(invItem)
             end
         end
     end
+	--]]
     
     if foundMatch then
         table.sort(unSortedTable, compare);
